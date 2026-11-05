@@ -44,6 +44,7 @@ from ledger import get_current_balance, load_ledger, record_completed_bet
 # Configuration Constants
 SEASON_START_DATE = datetime(2026, 3, 25).date()  # Earliest date the backfill will ever reach
 DEFAULT_SLATE_DATE = datetime(2026, 8, 11).date()
+SAMPLE_ODDS_DIR = os.path.join("data", "sample_odds")
 INITIAL_BANKROLL = 1000000.0  # Default starting bankroll ($1M) for both models
 EDGE_THRESHOLD = 0.03   # Minimum gap between model prob and fair market prob before we call it a "bet"
 WAGER_SIZE = 5000.0     # Fixed flat wager per recommended bet, for both models
@@ -1381,12 +1382,45 @@ def render_date_range_picker(state_prefix: str, label: str, today_date, season_s
     picked = selected_range[0] if isinstance(selected_range, tuple) else selected_range
     return picked, picked
 
+tab3, tab2, tab1 = st.tabs(["Bankroll Tracker", "Past Matchups", "Today's Matchups (OFFSEASON)"])
+
+st.markdown(
+    """
+    <style>
+    div[data-baseweb="tab-list"] button:nth-child(3) {
+        opacity: 0.45;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+def list_sample_dates() -> list:
+    """
+    Returns the dates (as "YYYY-MM-DD" strings, oldest first) that have an
+    odds file in SAMPLE_ODDS_DIR - the days a visitor to the repo can pick in
+    the Today's Matchup tab and actually see games. Empty if the folder
+    doesn't exist.
+    """
+    if not os.path.isdir(SAMPLE_ODDS_DIR):
+        return []
+    return sorted(
+        name[len("odds_"):-len(".json")]
+        for name in os.listdir(SAMPLE_ODDS_DIR)
+        if name.startswith("odds_") and name.endswith(".json")
+    )
+
 def fetch_past_slate(date_str: str) -> list:
     """
     Rebuilds a past day's slate in the same shape that
     fetch_live_api_odds_and_matchups() returns, using the historical odds
-    snapshot for that date (see fetch_historical_odds_for_date). This lets the
-    Today's Matchup tab show what a past days with games looks like.
+    snapshot for that date, so the Today's Matchup tab can show what a day
+    with games looks like.
+ 
+    Looks for the odds file in SAMPLE_ODDS_DIR first (these ship with the
+    repo, so no API key is needed). If the date isn't there, falls back to
+    the local historical_cache/ folder (see fetch_historical_odds_for_date,
+    which may call The Odds API if that date isn't cached yet).
  
     Only games that start on date_str (Eastern time) are kept, and a game is
     skipped if DraftKings had no price for either side.
@@ -1398,12 +1432,16 @@ def fetch_past_slate(date_str: str) -> list:
         A list of dicts with keys: away_team, home_team, away_odds,
         home_odds, game_time. Empty if no odds data exists for that date.
     """
-    fetch_historical_odds_for_date(date_str)  # makes sure the odds file for this date is cached
-    cache_file = os.path.join(HISTORICAL_CACHE_DIR, f"odds_{date_str}.json")
-    if not os.path.exists(cache_file):
-        return []
+    sample_file = os.path.join(SAMPLE_ODDS_DIR, f"odds_{date_str}.json")
+    if os.path.exists(sample_file):
+        odds_file = sample_file
+    else:
+        fetch_historical_odds_for_date(date_str)  # makes sure the odds file for this date is cached
+        odds_file = os.path.join(HISTORICAL_CACHE_DIR, f"odds_{date_str}.json")
+        if not os.path.exists(odds_file):
+            return []
  
-    with open(cache_file, "r") as f:
+    with open(odds_file, "r") as f:
         raw = json.load(f)
  
     games = []
@@ -1433,35 +1471,26 @@ def fetch_past_slate(date_str: str) -> list:
             "home_odds": home_odds,
             "game_time": commence_time,
         })
-    return games
-
-tab3, tab2, tab1 = st.tabs(["Bankroll Tracker", "Past Matchups", "Today's Matchup (offseason)"])
-
-st.markdown(
-    """
-    <style>
-    /* Gray out and disable the 3rd tab (Today's Matchup) during the offseason */
-    button[data-baseweb="tab"]:nth-of-type(3) {
-        opacity: 0.4;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+    return games   
 
 # ==========================================
 # TAB 1: TODAY'S MATCHUP
 # ==========================================
 with tab1:
     slate_date = st.date_input(
-        "Filter Slate Date (Min: March 25, 2026)",
-        value=DEFAULT_SLATE_DATE,
-        min_value=SEASON_START_DATE,
-        max_value=max(today_date, DEFAULT_SLATE_DATE),
-        key="slate_date",
+    "Example Slate Date (sample day: August 11, 2026)",
+    value=DEFAULT_SLATE_DATE,
+    min_value=DEFAULT_SLATE_DATE,
+    max_value=DEFAULT_SLATE_DATE,
+    key="slate_date",
     )
- 
+
+    sample_dates = list_sample_dates()
+    if sample_dates:
+        st.caption("Game range: Match 25 - August 11")
+
     if slate_date == today_date:
+ 
         slate_df = today_games_df
         st.write(f"### Live Slate ({slate_date.strftime('%Y-%m-%d')})")
     else:
