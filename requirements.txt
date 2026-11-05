@@ -1,0 +1,6 @@
+streamlit
+polars
+pandas
+pyarrow
+altair
+requests

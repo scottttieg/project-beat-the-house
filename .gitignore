@@ -1,1 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
 the_modelo_enviornment/
+
+# macOS
+.DS_Store
+
+# Secrets - never commit API keys
+.env
+.streamlit/secrets.toml
+
+# Cache that the app re-creates automatically
+historical_cache/
