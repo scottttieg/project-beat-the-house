@@ -25,7 +25,7 @@ The edge threshold applies to the live recommendations in the Today's Matchup ta
 
 ## The app
 
-- **Today's Matchup:** moneyline odds, the model's projection, the fair market probability, and a bet recommendation for each game. It shows the live slate for today, and a date picker lets you see what a past game day looked like.
+- **Today's Matchup:** moneyline odds, the model's projection, the fair market probability, and a bet recommendation for each game. It shows the live slate during the season but in the offseason, it displays one sample day.
 - **Past Matchups:** settled games by date range with results.
 - **Bankroll Tracker:** balance over time for both models, plus detailed ledgers.
 
